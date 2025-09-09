@@ -1,3 +1,24 @@
+# Python接口
+```shell
+cd CudaSift 
+mkdir build && cd build
+cmake .. && make
+```
+随后`ls`可以看见`cuda_sift.cpython-310-x86_64-linux-gnu.so`
+将这个文件拷贝到工作空间,即可`import cuda_sift`
+
+### example
+```python
+import cuda_sift
+import numpy as np 
+import cv2  
+image = cv2.imread('data/images/0001.jpg', cv2.IMREAD_GRAYSCALE)
+extractor = cuda_sift.CudaSift(device_num=0) 
+img_float = image.astype(np.float32) 
+for _ in range(10):
+    result = extractor.extract_features(img_float) 
+
+```
 # CudaSift - SIFT features with CUDA
 
 This is the fourth version of a SIFT (Scale Invariant Feature Transform) implementation using CUDA for GPUs from NVidia. The first version is from 2007 and GPUs have evolved since then. This version is slightly more precise and considerably faster than the previous versions and has been optimized for Kepler and later generations of GPUs.
