@@ -15,6 +15,33 @@ find_package(OpenCV REQUIRED)
 find_package(CUDA REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
 
+find_program(NVIDIA_SMI "nvidia-smi")
+set(CUDA_ARCH_FLAG "-arch=sm_61")  # 默认值
+
+if(NVIDIA_SMI)
+    execute_process(
+        COMMAND ${NVIDIA_SMI} --query-gpu=compute_cap --format=csv,noheader,nounits
+        OUTPUT_VARIABLE GPU_COMPUTE_CAP
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+        RESULT_VARIABLE SMI_RESULT
+    )
+    
+    if(SMI_RESULT EQUAL 0 AND GPU_COMPUTE_CAP)
+        # 取第一行（第一个GPU的架构）
+        string(REGEX MATCH "^[0-9]+\\.[0-9]+" FIRST_GPU_CAP "${GPU_COMPUTE_CAP}")
+        if(FIRST_GPU_CAP)
+            string(REPLACE "." "" ARCH_NUM "${FIRST_GPU_CAP}")
+            set(CUDA_ARCH_FLAG "-arch=sm_${ARCH_NUM}")
+            message(STATUS "Auto-detected CUDA architecture: sm_${ARCH_NUM}")
+        endif()
+    endif()
+endif()
+
+if(CUDA_ARCH_FLAG STREQUAL "-arch=sm_61")
+    message(STATUS "Using default CUDA architecture: sm_61")
+endif()
+
 # Find pybind11 with automatic path detection
 execute_process(
     COMMAND ${Python3_EXECUTABLE} -c "import pybind11; print(pybind11.get_cmake_dir())"
@@ -55,12 +82,12 @@ endif(NOT CUDA_FOUND)
 # Platform-specific settings
 if (WIN32)
   set(EXTRA_CXX_FLAGS "/DVERBOSE /D_CRT_SECURE_NO_WARNINGS ")
-  list(APPEND CUDA_NVCC_FLAGS "-arch=sm_61;--compiler-options;-O2;-DVERBOSE") 
+  list(APPEND CUDA_NVCC_FLAGS "${CUDA_NVCC_ARCH_FLAGS};--compiler-options;-O2;-DVERBOSE") 
 endif()
 if (UNIX)
   if (APPLE)
     set(EXTRA_CXX_FLAGS "-DVERBOSE -msse2")
-    list(APPEND CUDA_NVCC_FLAGS "-arch=sm_61;--compiler-options;-O2;-DVERBOSE") 
+    list(APPEND CUDA_NVCC_FLAGS "${CUDA_NVCC_ARCH_FLAGS};--compiler-options;-O2;-DVERBOSE") 
   else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -msse2 ")
     list(APPEND CUDA_NVCC_FLAGS "-lineinfo;-ccbin;/usr/bin/g++;--compiler-options;-O2;-D_FORCE_INLINES;-DVERBOSE_NOT") 
@@ -94,7 +121,7 @@ include_directories(
 )
 
 # Original executable (optional)
-cuda_add_executable(cudasift ${cuda_sources} ${sources} OPTIONS -arch=sm_61)
+cuda_add_executable(cudasift ${cuda_sources} ${sources} OPTIONS ${CUDA_NVCC_ARCH_FLAGS})
 
 set_target_properties(cudasift PROPERTIES
   COMPILE_FLAGS "${EXTRA_CXX_FLAGS}"			   
